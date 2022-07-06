@@ -5,6 +5,24 @@ import http.client, urllib.parse
 import json
 import io
 
+bg = '#003057'
+fg = '#ffe8f7'
+button_bg = '#3d49a8'
+label_bg = '#262d61'
+text_box_bg = '#d0dff5'
+abg = '#806b71'
+afg = '#3b2e70'
+fnt = 'gisha'
+fnt_size = '14'
+hi = '1' #buttons height
+wid = '24' #buttons width
+
+root = Tk()
+root.geometry('548x590')
+root.configure(bg=bg)
+frame = Frame(root)
+
+
 def return_answer(i):
     connection = sqlite3.connect('shoes_miles.db')
     cursor = connection.cursor()
@@ -34,17 +52,21 @@ def return_answer(i):
     return answer
 
 def insert_runs(i):
+    runs = []
     all_activities = return_answer(i)
     if i == 11:
         all = this_year(all_activities)
         if all != []:
-            runs = pace_year(all)
+            fast_run = pace_year(all)
+            runs.append(fast_run) #make it a list. so it looks like data that i get from mysql [(x,c,v)]
         else:
             runs = [('2011-11-11', 0.0, 0.0, 0.0, 0.0, '0',0,0)]#no data for this year
     elif i == 12:
         all = this_year(all_activities)
         if all != []:
-            runs = fast_year(all)
+            long_run = long_year(all)
+            runs.append(long_run) #make it a list. so it looks like data that i get from mysql [(x,c,v)]
+
         else:
             runs = [('2011-11-11', 0.0, 0.0, 0.0, 0.0, '0')]#no data for this year
     else:
@@ -65,7 +87,7 @@ def insert_runs(i):
         latitude = run[7]
         location = find_location(longitude,latitude)
         if all == []:
-            to_print = ('No run this year yet')
+            to_print = ('No runs this year yet')
         else:
             to_print = (f'{y}:{run[0]}\n  Distance: {round(ks,3)}Km\n  Time: {print_time}\n  Pace: {print_pace}\n  Max HR: {run[4]}\n  Avarage HR: {run[3]}\n  Shoe: {shoe[0]} \n  Location: {location[0]}, {location[1]}, {location[2]}\n\n')
 
@@ -78,16 +100,6 @@ def insert_runs(i):
     text_box.tag_add("left", 1.0, "end")
     text_box.place(x=16, y=320)
 
-def fast_year(all):
-    best_run = []
-    distance_cach = 0
-    for distance in all:
-        if int(distance[1]) > distance_cach:
-            distance_cach = int(distance[1])
-            best = distance
-        else: continue
-    best_run.append(best)
-    return best_run
 
 def all_shoes():
     connection = sqlite3.connect('shoes_miles.db')
@@ -99,13 +111,14 @@ def all_shoes():
     x = 1
     y = 1
     all_last = []
-    f = open('15_16_17_18_19.json')
-    raw_data = json.load(f)
+    with open('15_16_17_18_19.json') as f: #find the last run date with each shoe
+        raw_data = json.load(f)
     text_box = Text(root, height=11, width=50, bg = text_box_bg, font=(fnt,fnt_size))
     for shoe in all_shoes:
         index01 = f'{x}.0'
         z += 1
         gear_id = shoe[0]
+
         for activity in raw_data:
             if gear_id == activity["gear_id"]:
                 activity_date = (activity["start_date_local"])
@@ -131,8 +144,9 @@ def summary():
         cursor.execute('select * from all_activities order by date')
         first_date = cursor.fetchone()
     connection.close()
-    f = open('15_16_17_18_19.json')
-    raw_data = json.load(f)
+
+    with open('15_16_17_18_19.json') as f: #read all activities json and analize
+        raw_data = json.load(f)
     over_all_distance = 0
     over_all_time = 0
     over_all_elv = 0
@@ -142,7 +156,7 @@ def summary():
     no_cad = 0 #no cadance record counter
     pace_distance_sum = 0
     cadance_sum = 0
-    #over all distance
+    #over all distance, elevation, calculate avarage pace (sum(pace*distance) / total distance), avg heart rate (sum run_avg_hr / num of runs)
     for item in raw_data:
         x +=1
         distance = float(item["distance"])/1000
@@ -166,26 +180,17 @@ def summary():
     total_avg_cadance = 2*(cadance_sum / (x-no_cad))
 
     text_box = Text(root, height=11, width=50, bg = text_box_bg, font=(fnt,fnt_size))
-    text_box.insert(1.0, f'Over all distance: {round(over_all_distance,2)} Km\n\n')
-#    print ('distance',round (over_all_distance,2))
+    text_box.insert(1.0, f'Over all distance: {round(over_all_distance,2)} Km\n\n')#    print ('distance',round (over_all_distance,2))
     atime = make_time(over_all_time)
-    text_box.insert(3.0, f'Over all time running: {atime}\n\n')
-#    print ('time',round(over_all_time,2))
-    text_box.insert(5.0, f'Total elevation gain: {round(over_all_time,2)} meter\n\n')
-#    print ('total_elevation_gain',round(over_all_time,2))
-    text_box.insert(7.0, f'Total number of runs {x}\n\n')
-#    print ('total number of runs', x)
-    text_box.insert(9.0, f'Total avarage heart hate: {int(total_avg_hr)} bpm\n\n')
-#    print ('total_avg_hr', total_avg_hr)
-    text_box.insert(11.0, f'Runs with Heart Rate Monitor: {x-no_hr}\n\n')
-#    print ('run with hr monitor', x-no_hr)
+    text_box.insert(3.0, f'Over all time running: {atime}\n\n')#    print ('time',round(over_all_time,2))
+    text_box.insert(5.0, f'Total elevation gain: {round(over_all_time,2)} meter\n\n')#    print ('total_elevation_gain',round(over_all_time,2))
+    text_box.insert(7.0, f'Total number of runs {x}\n\n')#    print ('total number of runs', x)
+    text_box.insert(9.0, f'Total avarage heart hate: {int(total_avg_hr)} bpm\n\n')#    print ('total_avg_hr', total_avg_hr)
+    text_box.insert(11.0, f'Runs with Heart Rate Monitor: {x-no_hr}\n\n')#    print ('run with hr monitor', x-no_hr)
     pace = make_time(total_avg_pace)
-    text_box.insert(13.0, f'Total avarage pace: {pace}\n\n')
-#    print ('avarage pace',total_avg_pace )
-    text_box.insert(15.0, f'Avarage Cadance: {int(total_avg_cadance)}\n\n')
-#    print ('avarage cadance',total_avg_cadance )
-    text_box.insert(17.0, f'Runs with steps counter: {x-no_cad}\n\n')
-#    print ('runs with steps counter', x-no_cad)
+    text_box.insert(13.0, f'Total avarage pace: {pace}\n\n')#    print ('avarage pace',total_avg_pace )
+    text_box.insert(15.0, f'Avarage Cadance: {int(total_avg_cadance)}\n\n')#    print ('avarage cadance',total_avg_cadance )
+    text_box.insert(17.0, f'Runs with steps counter: {x-no_cad}\n\n')#    print ('runs with steps counter', x-no_cad)
     text_box.insert(19.0, f'First run recorded on Strava: {first_date[0]}, {first_date[1]/1000}Km\n\n')
     text_box.insert(21.0, 'information from strava.api')
 
@@ -193,6 +198,8 @@ def summary():
     text_box.place(x=16, y=320)
 
 def get_shoe_name(gear_id):
+    #shoes_miles table create by add_and_update_shoes_db.py and jsons from strava api
+    #get the shoe for specific run
     connection = sqlite3.connect('shoes_miles.db')
     cursor = connection.cursor()
     sql = 'select name from shoes_miles where gear_id = ?'
@@ -201,7 +208,6 @@ def get_shoe_name(gear_id):
         try:
             cursor.execute(sql,val)
             shoe_name = cursor.fetchall()[0]
-
         except:
             shoe_name = 'None'
     connection.close()
@@ -222,6 +228,7 @@ def make_time(atime):
         return min_sec
 
 def this_year(all):
+    #make a list of all the runs in chosen year (this year)
     year_runs = []
     best_run = []
     pace_cach = 100
@@ -237,19 +244,21 @@ def this_year(all):
             continue
     return year_runs
 
+def long_year(all):
+    #find longest run
+    distance = lambda all : all[1]
+    all.sort(key=distance, reverse = True)
+    return (all[0])
+
 def pace_year(all):
-    pace_cach = 100
-    best_run = []
-    for pace in all:
-        if int(pace[2]) > 0 and int(pace[2]) < pace_cach:
-            pace_cach = pace[2]
-            best = pace
-        else:
-            continue
-    best_run.append(best)
-    return best_run
+    #find fastest run
+    pace = lambda all : all[2]
+    all.sort(key=pace, reverse = False)
+    return (all[0])
+
 
 def find_location(longitude,latitude):
+    #get longitude,latitude from strava json and request city and neighbourhood, country from api.positionstack.com
     conn = http.client.HTTPConnection('api.positionstack.com')
     x = str(latitude)+','+str(longitude)
     params = urllib.parse.urlencode({
@@ -299,7 +308,7 @@ def load_frame():
     activeforeground = afg, height = hi, width = wid, command=lambda:insert_runs(5))
     bt06.grid(row=3,column=1)
 
-    bt07 = Button(root,text="Highest Hr MAX ever", font=(fnt,fnt_size), fg=fg, bg=button_bg, activebackground = abg,
+    bt07 = Button(root,text="Highest MAX HR recorded", font=(fnt,fnt_size), fg=fg, bg=button_bg, activebackground = abg,
     activeforeground = afg, height = hi, width = wid, command=lambda:insert_runs(1))
     bt07.grid(row=4,column=0)
 
@@ -315,7 +324,7 @@ def load_frame():
     activeforeground = afg, height = hi, width = wid, command=lambda:insert_runs(12))
     bt10.grid(row=5,column=1)
 
-    bt11 = Button(root,text="All Shoes I Ever Run", font=(fnt,fnt_size), fg=fg, bg=button_bg, activebackground = abg,
+    bt11 = Button(root,text="All Shoes", font=(fnt,fnt_size), fg=fg, bg=button_bg, activebackground = abg,
     activeforeground = afg, height = hi, width = wid, command=lambda:all_shoes())
     bt11.grid(row=6,column=0)
 
@@ -327,22 +336,6 @@ def load_frame():
     text_box.tag_add("left", 1.0, "end")
     text_box.place(x=16, y=320)
 
-bg = '#003057'
-fg = '#ffe8f7'
-button_bg = '#3d49a8'
-label_bg = '#262d61'
-text_box_bg = '#d0dff5'
-abg = '#806b71'
-afg = '#3b2e70'
-fnt = 'gisha'
-fnt_size = '14'
-hi = '1'
-wid = '24'
-
-root = Tk()
-root.geometry('548x590')
-root.configure(bg=bg)
-frame = Frame(root)
 
 load_frame()
 root.mainloop()
